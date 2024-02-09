@@ -45,6 +45,9 @@ const channelLength = 100
 // Applies to the blockInCh, 10000 is a large enough number for blocks per DA block.
 const blockInChLength = 10000
 
+// blockProtocolOverhead is the overhead in bytes of serializing the block into blob.
+const blockProtocolOverhead = 100
+
 // initialBackoff defines initial value for block submission backoff
 var initialBackoff = 100 * time.Millisecond
 
@@ -162,6 +165,16 @@ func NewManager(
 	if conf.BlockTime == 0 {
 		logger.Info("Using default block time", "BlockTime", defaultBlockTime)
 		conf.BlockTime = defaultBlockTime
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	maxBlobSize, err := dalc.DA.MaxBlobSize(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if genesis.ConsensusParams.Block.MaxBytes >= int64(maxBlobSize) {
+		genesis.ConsensusParams.Block.MaxBytes = int64(maxBlobSize) - blockProtocolOverhead
 	}
 
 	proposerAddress, err := getAddress(proposerKey)
